@@ -5,7 +5,7 @@ Window manager widgets
 Awesome widget
 ==============
 
-.. note:: Powerline currently only supports awesome 3.5.
+.. note:: Powerline currently only supports awesome 3.5 and 4+.
 
 .. note:: The Powerline widget will spawn a shell script that runs in the 
    background and updates the statusline with ``awesome-client``.
@@ -23,7 +23,17 @@ Then add the ``powerline_widget`` to ``wibox``:
 
 .. code-block:: lua
 
+   -- awesome3.5
    right_layout:add(powerline_widget)
+   
+   -- awesome4+
+   s.mywibox:setup {
+   ...
+     { -- Right widgets
+       ...
+       powerline_widget,
+     },
+   }
 
 Qtile widget
 ============
@@ -50,43 +60,42 @@ Add the following to :file:`~/.config/qtile/config.py`:
        ),
    ]
 
-.. _bar-usage:
+.. _lemonbar-usage:
 
-bar-aint-recursive
-==================
+lemonbar (formerly bar-aint-recursive)
+======================================
 
-To run the bar simply pipe the output of the binding script into ``bar`` and 
-specify appropriate options, for example like this::
+To run the bar simply start the binding script:
 
-    python /path/to/powerline/bindings/bar/powerline-bar.py | bar
+    python /path/to/powerline/bindings/lemonbar/powerline-lemonbar.py
 
-to run with i3, simply ``exec`` this in i3 config file::
+You can specify options to be passed to ``lemonbar`` after ``--``, like so:
 
-    exec python /path/to/powerline/bindings/bar/powerline-bar.py --i3 | bar
+    python /path/to/powerline/bindings/lemonbar/powerline-lemonbar.py --height 16 -- -f "Source Code Pro for Powerline-9"
 
-Running the binding in i3-mode will require `i3ipc <https://github.com/acrisci/i3ipc-python>`_
-(or the outdated `i3-py <https://github.com/ziberna/i3-py>`_).
+to run with i3, simply ``exec`` this in the i3 config file and set the ``--i3`` switch:
 
-See the `bar documentation <https://github.com/LemonBoy/bar>`_ for more 
+    exec python /path/to/powerline/bindings/lemonbar/powerline-lemonbar.py --i3
+
+Running the binding in i3-mode will require `i3ipc <https://github.com/acrisci/i3ipc-python>`_.
+
+See the `lemonbar documentation <https://github.com/LemonBoy/bar>`_ for more 
 information and options.
+
+All ``powerline-lemonbar.py`` arguments:
+
+.. automan:: powerline.commands.lemonbar
+   :prog: powerline-lemonbar.py
+   :minimal: true
 
 I3 bar
 ======
 
-.. note::
-   As the patch to include background-colors in i3bar is likely not to be 
-   merged, it is recommended to instead run ``bar`` (see above). The source for 
-   i3bgbar is however still available `here 
-   <https://github.com/S0lll0s/i3bgbar>`_.
-
-Add the following to :file:`~/.i3/config`::
+Add the following to :file:`~/.config/i3/config`::
 
     bar {
-        i3bar_command i3bgbar
-
         status_command python /path/to/powerline/bindings/i3/powerline-i3.py
         font pango:PowerlineFont 12
     }
 
-where ``i3bgbar`` may be replaced with the path to the custom i3bar binary and 
-``PowerlineFont`` is any system font with powerline support.
+where ``PowerlineFont`` is any system font with powerline support.

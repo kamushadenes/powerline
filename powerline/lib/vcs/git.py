@@ -102,6 +102,13 @@ try:
 		def ignore_event(path, name):
 			return False
 
+		def stash(self):
+			try:
+				stashref = git.Repository(git_directory(self.directory)).lookup_reference('refs/stash')
+			except KeyError:
+				return 0
+			return sum(1 for _ in stashref.log())
+
 		def do_status(self, directory, path):
 			if path:
 				try:
@@ -164,24 +171,27 @@ except ImportError:
 		@staticmethod
 		def ignore_event(path, name):
 			# Ignore changes to the index.lock file, since they happen 
-			# frequently and dont indicate an actual change in the working tree 
+			# frequently and don't indicate an actual change in the working tree
 			# status
 			return path.endswith('.git') and name == 'index.lock'
 
 		def _gitcmd(self, directory, *args):
 			return readlines(('git',) + args, directory)
 
+		def stash(self):
+			return sum(1 for _ in self._gitcmd(self.directory, '--no-optional-locks', 'stash', 'list'))
+
 		def do_status(self, directory, path):
 			if path:
 				try:
-					return next(self._gitcmd(directory, 'status', '--porcelain', '--ignored', '--', path))[:2]
+					return next(self._gitcmd(directory, '--no-optional-locks', 'status', '--porcelain', '--ignored', '--', path))[:2]
 				except StopIteration:
 					return None
 			else:
 				wt_column = ' '
 				index_column = ' '
 				untracked_column = ' '
-				for line in self._gitcmd(directory, 'status', '--porcelain'):
+				for line in self._gitcmd(directory, '--no-optional-locks', 'status', '--porcelain'):
 					if line[0] == '?':
 						untracked_column = 'U'
 						continue

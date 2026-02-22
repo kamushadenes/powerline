@@ -101,17 +101,14 @@ class Environment(object):
 			return False
 
 
-if hasattr(getattr(zsh, 'environ', None), '__contains__'):
-	environ = zsh.environ
-else:
-	environ = Environment()
+environ = Environment()
 
 
 if hasattr(zsh, 'expand') and zsh.expand('${:-}') == '':
 	zsh_expand = zsh.expand
 else:
 	def zsh_expand(s):
-		zsh.eval('_POWERLINE_REPLY="' + s + '"')
+		zsh.eval('local _POWERLINE_REPLY="' + s + '"')
 		ret = zsh.getvalue('_POWERLINE_REPLY')
 		zsh.setvalue('_POWERLINE_REPLY', None)
 		return ret

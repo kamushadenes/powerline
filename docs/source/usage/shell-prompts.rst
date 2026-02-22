@@ -1,10 +1,13 @@
+.. _usage-shell:
+
 *************
 Shell prompts
 *************
 
 .. note::
-    Powerline daemon is not run automatically by any of my bindings. It is 
-    advised to add
+    Powerline can operate without a background daemon, but the shell performance
+    can be very slow.  The Powerline daemon improves this performance
+    significantly, but must be started separately. It is advised to add
 
     .. code-block:: bash
 
@@ -109,7 +112,7 @@ following in ``~/.profile``:
 
 .. code-block:: bash
 
-    if test "x$0" != "x${0#dash}" ; then
+    if test "$0" != "${0#dash}" ; then
         export ENV={repository_root}/powerline/bindings/shell/powerline.sh
     fi
 
@@ -140,3 +143,19 @@ following in ``~/.profile``:
 .. warning::
     Busybox has two shells: ``ash`` and ``hush``. Second is known to segfault in 
     busybox 1.22.1 when using :file:`powerline.sh` script.
+    
+Python Virtual Environments (conda, pyenv)
+==========================================
+
+If your system uses virtual environments to manage different Python versions,
+such as pyenv or anaconda, these tools will add a performance delay to every
+shell prompt.  This delay can be bypassed by explicitly specifying your command
+path.
+
+    .. code-block:: bash
+
+        export POWERLINE_COMMAND={path_to_powerline}
+        
+where ``{path_to_powerline}`` is the full filepath for powerline.  If you
+installed Powerline within an environment, you can find this path for pyenv
+with ``pyenv which powerline`` or for conda with ``which powerline``.

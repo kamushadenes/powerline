@@ -34,7 +34,7 @@ class Spec(object):
 
 	.. note::
 		Methods that create the specifications return ``self``, so calls to them 
-		may be chained: ``Spec().type(unicode).re('^\w+$')``. This does not 
+		may be chained: ``Spec().type(unicode).re('^\\w+$')``. This does not
 		apply to functions that *apply* specification like :py:meth`Spec.match`.
 
 	.. note::
@@ -163,7 +163,7 @@ class Spec(object):
 		'''Define message which will be used when unknown key was found
 
 		“Unknown” is a key that was not provided at the initialization and via 
-		:py:meth:`Spec.update` and did not match any ``keyfunc`` proided via 
+		:py:meth:`Spec.update` and did not match any ``keyfunc`` provided via 
 		:py:meth:`Spec.unknown_spec`.
 
 		:param msgfunc:
@@ -264,7 +264,7 @@ class Spec(object):
 		:param func msg_func:
 			Callable like ``msg_func`` from :py:meth:`Spec.check_func`. Should 
 			accept one problematic item and is not used for :py:class:`Spec` 
-			object indicies in ``item_func`` method.
+			object indices in ``item_func`` method.
 
 		:return: proceed, hadproblem.
 		'''
@@ -515,7 +515,7 @@ class Spec(object):
 			optional. Each element in this list describes element with the same 
 			index in the checked value. Check out :py:meth:`Spec.check_tuple` 
 			for more details, but note that there list of specifications is 
-			replaced with start and end indicies in ``self.specs``.
+			replaced with start and end indices in ``self.specs``.
 
 		:return: self.
 		'''
@@ -585,7 +585,7 @@ class Spec(object):
 			msg_func
 			or (lambda value: 'String "{0}" is not an alphanumeric/underscore colon-separated identifier'.format(value))
 		)
-		return self.re('^\w+(?::\w+)?$', msg_func)
+		return self.re(r'^\w+(?::\w+)?$', msg_func)
 
 	def oneof(self, collection, msg_func=None):
 		'''Describe value that is equal to one of the value in the collection
@@ -633,7 +633,7 @@ class Spec(object):
 
 		Check out :py:meth:`Spec.check_either` method documentation for more 
 		details, but note that there a list of specs was replaced by start and 
-		end indicies in ``self.specs``.
+		end indices in ``self.specs``.
 
 		:return: self.
 		'''

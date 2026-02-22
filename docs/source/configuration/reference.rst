@@ -53,7 +53,7 @@ Common configuration is a subdictionary that is a value of ``common`` key in
 
 ``ambiwidth``
     Tells powerline what to do with characters with East Asian Width Class 
-    Ambigious (such as Euro, Registered Sign, Copyright Sign, Greek
+    Ambiguous (such as Euro, Registered Sign, Copyright Sign, Greek
     letters, Cyrillic letters). Valid values: any positive integer; it is 
     suggested that this option is only set it to 1 (default) or 2.
 
@@ -132,7 +132,7 @@ Common configuration is a subdictionary that is a value of ``common`` key in
 
 ``interval``
     Number, determines time (in seconds) between checks for changed 
-    configuration. Checks are done in a seprate thread. Use ``null`` to check 
+    configuration. Checks are done in a separate thread. Use ``null`` to check 
     for configuration changes on ``.render()`` call in main thread.
     Defaults to ``None``.
 
@@ -144,8 +144,8 @@ Common configuration is a subdictionary that is a value of ``common`` key in
 
 ``default_top_theme``
     String, determines which top-level theme will be used as the default. 
-    Defaults to ``powerline`` in unicode locales and ``ascii`` in non-unicode 
-    locales. See `Themes`_ section for more details.
+    Defaults to ``powerline_terminus`` in unicode locales and ``ascii`` in 
+    non-unicode locales. See `Themes`_ section for more details.
 
 Extension-specific configuration
 --------------------------------
@@ -187,6 +187,12 @@ Common configuration is a subdictionary that is a value of ``ext`` key in
     ``out`` and ``rewrite`` prompts (refer to IPython documentation for more 
     details) while ``in`` prompt is the default.
 
+    For wm (:ref:`lemonbar <lemonbar-usage>` only) it is a dictionary 
+    ``{output : theme_name}`` that maps the ``xrandr`` output names to the 
+    local themes to use on that output.
+
+.. _config-ext-components:
+
 ``components``
     Determines which extension components should be enabled. This key is highly 
     extension-specific, here is the table of extensions and corresponding 
@@ -208,6 +214,13 @@ Common configuration is a subdictionary that is a value of ``ext`` key in
     +---------+----------+-----------------------------------------------------+
 
     All components are enabled by default.
+
+.. _config-ext-update_interval:
+
+``update_interval``
+    Determines how often WM status bars need to be updated, in seconds. Only 
+    valid for WM extensions which use ``powerline-daemon``. Defaults to 
+    2 seconds.
 
 .. _config-colors:
 
@@ -232,7 +245,7 @@ Color definitions
     gradient, and the value is a list containing one or two items, second item 
     is optional:
 
-    * A list of cterm color indicies.
+    * A list of cterm color indices.
     * A list of hex color strings.
 
     It is expected that gradients are defined from least alert color to most 
@@ -325,6 +338,7 @@ powerline_unicode7          Theme with powerline dividers and unicode-7 symbols
 unicode                     Theme without any symbols from private use area
 unicode_terminus            Theme containing only symbols from terminus PCF font
 unicode_terminus_condensed  Like above, but occupies as less space as possible
+powerline_terminus          Like unicode_terminus, but with powerline symbols
 ascii                       Theme without any unicode characters at all
 ==========================  ====================================================
 
@@ -354,6 +368,10 @@ ascii                       Theme without any unicode characters at all
        is set in the local themes it will be ignored. This option may also be 
        ignored in some bindings.
 
+``outer_padding``
+    Defines number of spaces at the end of output (on the right side) or at 
+    the start of output (on the left side). Defaults to ``1``.
+
 
 ``dividers``
     Defines the dividers used in all Powerline extensions.
@@ -370,7 +388,7 @@ ascii                       Theme without any unicode characters at all
 
 ``cursor_columns``
     Space reserved for user input in shell bindings. Unlike :ref:`cursor_space 
-    <config-themes-cursor_space>` it is measured in absolute amout of columns.
+    <config-themes-cursor_space>` it is measured in absolute amount of columns.
 
 .. _config-themes-segment_data:
 
@@ -384,7 +402,7 @@ ascii                       Theme without any unicode characters at all
     :ref:`display <config-themes-seg-display>`.
 
     Key :ref:`args <config-themes-seg-args>` (only for function and 
-    segments_list segments) is handled specially: unlike other values it is 
+    segment_list segments) is handled specially: unlike other values it is 
     merged with all other values, except that a single ``{module}.{function}`` 
     key if found prevents merging all ``{function}`` values.
 
@@ -421,7 +439,7 @@ ascii                       Theme without any unicode characters at all
 
     ``type``
         The segment type. Can be one of ``function`` (default), ``string`` or 
-        ``segments_list``:
+        ``segment_list``:
 
         ``function``
             The segment contents is the return value of the function defined in 
@@ -436,7 +454,7 @@ ascii                       Theme without any unicode characters at all
             highlighting group is defined in the :ref:`highlight_groups option 
             <config-themes-seg-highlight_groups>`.
 
-        ``segments_list``
+        ``segment_list``
             Sub-list of segments. This list only allows :ref:`function 
             <config-themes-seg-function>`, :ref:`segments 
             <config-themes-seg-segments>` and :ref:`args 
@@ -451,7 +469,7 @@ ascii                       Theme without any unicode characters at all
         Segment name. If present allows referring to this segment in 
         :ref:`segment_data <config-themes-segment_data>` dictionary by this 
         name. If not ``string`` segments may not be referred there at all and 
-        ``function`` and ``segments_list`` segments may be referred there using 
+        ``function`` and ``segment_list`` segments may be referred there using 
         either ``{module}.{function_name}`` or ``{function_name}``, whichever 
         will be found first. Function name is taken from :ref:`function key 
         <config-themes-seg-function>`.

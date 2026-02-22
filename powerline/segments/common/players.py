@@ -2,6 +2,7 @@
 from __future__ import (unicode_literals, division, absolute_import, print_function)
 
 import sys
+import re
 
 from powerline.lib.shell import asrun, run_cmd
 from powerline.lib.unicode import out_u
@@ -30,6 +31,8 @@ def _convert_state(state):
 
 def _convert_seconds(seconds):
 	'''Convert seconds to minutes:seconds format'''
+	if isinstance(seconds, str):
+	        seconds = seconds.replace(",",".")
 	return '{0:.0f}:{1:02.0f}'.format(*divmod(float(seconds), 60))
 
 
@@ -62,7 +65,7 @@ class PlayerSegment(Segment):
 		yield 'get_player_status', self.get_player_status
 
 	def omitted_args(self, name, method):
-		return (0,)
+		return ()
 
 
 _common_args = '''
@@ -160,7 +163,7 @@ class CmusPlayerSegment(PlayerSegment):
 cmus = with_docstring(CmusPlayerSegment(),
 ('''Return CMUS player information
 
-Requires cmus-remote command be acessible from $PATH.
+Requires cmus-remote command be accessible from $PATH.
 
 {0}
 ''').format(_common_args.format('cmus')))
@@ -174,19 +177,29 @@ class MpdPlayerSegment(PlayerSegment):
 			if password:
 				host = password + '@' + host
 			now_playing = run_cmd(pl, [
-				'mpc', 'current',
-				'-f', '%album%\n%artist%\n%title%\n%time%',
+				'mpc',
 				'-h', host,
 				'-p', str(port)
 			], strip=False)
-			if not now_playing:
+			album = run_cmd(pl, [
+				'mpc', 'current',
+				'-f', '%album%',
+				'-h', host,
+				'-p', str(port)
+			])
+			if not now_playing or now_playing.count("\n") != 3:
 				return
-			now_playing = now_playing.split('\n')
+			now_playing = re.match(
+				r"(.*) - (.*)\n\[([a-z]+)\] +[#0-9\/]+ +([0-9\:]+)\/([0-9\:]+)",
+				now_playing
+			)
 			return {
-				'album': now_playing[0],
+				'state': _convert_state(now_playing[3]),
+				'album': album,
 				'artist': now_playing[1],
 				'title': now_playing[2],
-				'total': now_playing[3],
+				'elapsed': now_playing[4],
+				'total': now_playing[5]
 			}
 		else:
 			try:
@@ -208,7 +221,7 @@ class MpdPlayerSegment(PlayerSegment):
 				'album': now_playing.get('album'),
 				'artist': now_playing.get('artist'),
 				'title': now_playing.get('title'),
-				'elapsed': _convert_seconds(now_playing.get('elapsed', 0)),
+				'elapsed': _convert_seconds(status.get('elapsed', 0)),
 				'total': _convert_seconds(now_playing.get('time', 0)),
 			}
 
@@ -217,7 +230,7 @@ mpd = with_docstring(MpdPlayerSegment(),
 ('''Return Music Player Daemon information
 
 Requires ``mpd`` Python module (e.g. |python-mpd2|_ or |python-mpd|_ Python
-package) or alternatively the ``mpc`` command to be acessible from $PATH.
+package) or alternatively the ``mpc`` command to be accessible from $PATH.
 
 .. |python-mpd| replace:: ``python-mpd``
 .. _python-mpd: https://pypi.python.org/pypi/python-mpd
@@ -242,9 +255,20 @@ except ImportError:
 		pl.error('Could not add {0} segment: requires dbus module', player_name)
 		return
 else:
-	def _get_dbus_player_status(pl, bus_name, player_path, iface_prop,
-	                            iface_player, player_name='player'):
+	def _get_dbus_player_status(pl,
+				bus_name=None,
+				iface_prop='org.freedesktop.DBus.Properties',
+				iface_player='org.mpris.MediaPlayer2.Player',
+				player_path='/org/mpris/MediaPlayer2',
+				player_name='player'):
 		bus = dbus.SessionBus()
+
+		if bus_name is None:
+			for service in bus.list_names():
+				if re.match('org.mpris.MediaPlayer2.', service):
+					bus_name = service
+					break
+
 		try:
 			player = bus.get_object(bus_name, player_path)
 			iface = dbus.Interface(player, iface_prop)
@@ -254,6 +278,14 @@ else:
 			return
 		if not info:
 			return
+
+		try:
+			elapsed = iface.Get(iface_player, 'Position')
+		except dbus.exceptions.DBusException:
+			pl.warning('Missing player elapsed time')
+			elapsed = None
+		else:
+			elapsed = _convert_seconds(elapsed / 1e6)
 		album = info.get('xesam:album')
 		title = info.get('xesam:title')
 		artist = info.get('xesam:artist')
@@ -264,12 +296,19 @@ else:
 			title = out_u(title)
 		if artist:
 			artist = out_u(artist[0])
+
+		length = info.get('mpris:length')
+		# avoid parsing `None` length values, that would
+		# raise an error otherwise
+		parsed_length = length and _convert_seconds(length / 1e6)
+
 		return {
 			'state': state,
 			'album': album,
 			'artist': artist,
 			'title': title,
-			'total': _convert_seconds(info.get('mpris:length') / 1e6),
+			'elapsed': elapsed,
+			'total': parsed_length,
 		}
 
 
@@ -299,6 +338,17 @@ Requires ``dbus`` python module. Only for players that support specific protocol
 
 class SpotifyDbusPlayerSegment(PlayerSegment):
 	def get_player_status(self, pl):
+		player_status = _get_dbus_player_status(
+			pl=pl,
+			player_name='Spotify',
+			bus_name='org.mpris.MediaPlayer2.spotify',
+			player_path='/org/mpris/MediaPlayer2',
+			iface_prop='org.freedesktop.DBus.Properties',
+			iface_player='org.mpris.MediaPlayer2.Player',
+		)
+		if player_status is not None:
+			return player_status
+		# Fallback for legacy spotify client with different DBus protocol
 		return _get_dbus_player_status(
 			pl=pl,
 			player_name='Spotify',
@@ -333,7 +383,7 @@ class SpotifyAppleScriptPlayerSegment(PlayerSegment):
 						set artist_name to artist of current track
 						set album_name to album of current track
 						set track_length to duration of current track
-						set now_playing to "" & player state & "{0}" & album_name & "{0}" & artist_name & "{0}" & track_name & "{0}" & track_length
+						set now_playing to "" & player state & "{0}" & album_name & "{0}" & artist_name & "{0}" & track_name & "{0}" & track_length & "{0}" & player position
 						return now_playing
 					else
 						return player state
@@ -358,7 +408,8 @@ class SpotifyAppleScriptPlayerSegment(PlayerSegment):
 			'album': spotify_status[1],
 			'artist': spotify_status[2],
 			'title': spotify_status[3],
-			'total': _convert_seconds(int(spotify_status[4]))
+			'total': _convert_seconds(int(spotify_status[4])/1000),
+			'elapsed': _convert_seconds(spotify_status[5]),
 		}
 
 
@@ -371,7 +422,7 @@ Requires ``osascript`` available in $PATH.
 ''').format(_common_args.format('spotify_apple_script')))
 
 
-if 'dbus' in globals() or not sys.platform.startswith('darwin'):
+if not sys.platform.startswith('darwin'):
 	spotify = spotify_dbus
 	_old_name = 'spotify_dbus'
 else:
@@ -477,3 +528,109 @@ Requires ``osascript`` available in $PATH.
 
 {0}
 ''').format(_common_args.format('rdio')))
+
+
+class ITunesPlayerSegment(PlayerSegment):
+	def get_player_status(self, pl):
+		status_delimiter = '-~`/='
+		ascript = '''
+			tell application "System Events"
+				set process_list to (name of every process)
+			end tell
+
+			if process_list contains "iTunes" then
+				tell application "iTunes"
+					if player state is playing then
+						set t_title to name of current track
+						set t_artist to artist of current track
+						set t_album to album of current track
+						set t_duration to duration of current track
+						set t_elapsed to player position
+						set t_state to player state
+						return t_title & "{0}" & t_artist & "{0}" & t_album & "{0}" & t_elapsed & "{0}" & t_duration & "{0}" & t_state
+					end if
+				end tell
+			end if
+		'''.format(status_delimiter)
+		now_playing = asrun(pl, ascript)
+		if not now_playing:
+			return
+		now_playing = now_playing.split(status_delimiter)
+		if len(now_playing) != 6:
+			return
+		title, artist, album = now_playing[0], now_playing[1], now_playing[2]
+		state = _convert_state(now_playing[5])
+		total = _convert_seconds(now_playing[4])
+		elapsed = _convert_seconds(now_playing[3])
+		return {
+			'title': title,
+			'artist': artist,
+			'album': album,
+			'total': total,
+			'elapsed': elapsed,
+			'state': state
+		}
+
+
+itunes = with_docstring(ITunesPlayerSegment(),
+('''Return iTunes now playing information
+
+Requires ``osascript``.
+
+{0}
+''').format(_common_args.format('itunes')))
+
+
+class MocPlayerSegment(PlayerSegment):
+	def get_player_status(self, pl):
+		'''Return Music On Console (mocp) player information.
+
+		``mocp -i`` returns current information i.e.
+
+		.. code-block::
+
+		   File: filename.format
+		   Title: full title
+		   Artist: artist name
+		   SongTitle: song title
+		   Album: album name
+		   TotalTime: 00:00
+		   TimeLeft: 00:00
+		   TotalSec: 000
+		   CurrentTime: 00:00
+		   CurrentSec: 000
+		   Bitrate: 000kbps
+		   AvgBitrate: 000kbps
+		   Rate: 00kHz
+
+		For the information we are looking for we don’t really care if we have 
+		extra-timing information or bit rate level. The dictionary comprehension 
+		in this method takes anything in ignore_info and brings the key inside 
+		that to the right info of the dictionary.
+		'''
+		now_playing_str = run_cmd(pl, ['mocp', '-i'])
+		if not now_playing_str:
+			return
+
+		now_playing = dict((
+			line.split(': ', 1)
+			for line in now_playing_str.split('\n')[:-1]
+		))
+		state = _convert_state(now_playing.get('State', 'stop'))
+		return {
+			'state': state,
+			'album': now_playing.get('Album', ''),
+			'artist': now_playing.get('Artist', ''),
+			'title': now_playing.get('SongTitle', ''),
+			'elapsed': _convert_seconds(now_playing.get('CurrentSec', 0)),
+			'total': _convert_seconds(now_playing.get('TotalSec', 0)),
+		}
+
+
+mocp = with_docstring(MocPlayerSegment(),
+('''Return MOC (Music On Console) player information
+
+Requires version >= 2.3.0 and ``mocp`` executable in ``$PATH``.
+
+{0}
+''').format(_common_args.format('mocp')))

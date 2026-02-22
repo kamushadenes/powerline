@@ -17,6 +17,10 @@ If installed using pip just add
 
 (replace ``python`` with ``python3`` if appropriate) to the :file:`vimrc`.
 
+.. note::
+   Status line will not appear by default when there is only a single window
+   displayed. Run ``:h 'laststatus'`` in Vim for more information.
+
 If the repository was just cloned the following line needs to be added to the 
 :file:`vimrc`:
 
@@ -89,8 +93,8 @@ root <repository-root>`)::
 
 .. note::
     The availability of the ``powerline-config`` command is required for 
-    powerline support. DLlocation of this script may be specified via 
-    ``$POWERLINE_CONFIG_COMMAND`` environment variable.
+    powerline support. The location of this script may be specified via 
+    the ``$POWERLINE_CONFIG_COMMAND`` environment variable.
 
 .. note::
     It is advised to run ``powerline-daemon`` before adding the above line to 
@@ -100,8 +104,71 @@ root <repository-root>`)::
 
     to :file:`.tmux.conf`.
 
+.. warning::
+    Segments which depend on current working directory (e.g. 
+    :py:func:`powerline.segments.common.vcs.branch`) require also setting up 
+    :ref:`shell bindings <usage-shell>`. It is not required to use powerline 
+    shell prompt, :ref:`components setting <config-ext-components>` allows to 
+    set up only powerline bindings for tmux without altering your prompt. 
+    Without setting up shell bindings powerline will use current working 
+    directory of *tmux server* which is probably not what you need.
+
+    Segments which depend on environment like 
+    :py:func:`powerline.segments.common.env.virtualenv` will not work at all 
+    (i.e. they will use environment of the tmux server), tracking environment 
+    changes is going to slow down shell a lot.
+
+    In any case it is suggested to avoid both kinds of segments in tmux 
+    :ref:`themes <config-themes>` because even support for tracking current 
+    directory is very limited:
+
+    #. It works only in shell. Should you e.g. run Vim and run ``:cd`` there you 
+       will get current working directory from shell.
+    #. It works only in local shell and requires configuring it.
+    #. Some shells are not supported at all.
+
 IPython prompt
 ==============
+
+For IPython>=7.0, add the following line to
+:file:`~/.ipython/profile_default/ipython_config.py` file in the used profile:
+
+
+.. code-block:: Python
+
+    from powerline.bindings.ipython.since_7 import PowerlinePrompts
+    c.TerminalInteractiveShell.prompts_class = PowerlinePrompts
+
+.. note::
+    If certain graphical/colored elements are not showing, make sure `c.TerminalInteractiveShell.simple_prompt`
+    is set to `False` in your config. 
+    Setting ``simple_prompt`` to False after IPython-5.0 is required regardless 
+    of whether you use ``c.InteractiveShellApp.extensions`` setting or 
+    ``c.TerminalInteractiveShell.prompts_class``. But you probably already have 
+    this line because ``simple_prompt`` is set to ``False`` by default and IPython
+    is not very useful without it.
+
+For IPython>=5.0 and <7.0 it is suggested to use
+
+.. code-block:: Python
+
+    from powerline.bindings.ipython.since_5 import PowerlinePrompts
+    c = get_config()
+    c.TerminalInteractiveShell.simple_prompt = False
+    c.TerminalInteractiveShell.prompts_class = PowerlinePrompts
+    
+
+    
+For IPython>=5.0 and <7.0 you may use the below set up, but it is deprecated.    
+For IPython>=0.11 add the following line to
+:file:`~/.ipython/profile_default/ipython_config.py` file in the used profile:
+
+.. code-block:: Python
+
+    c = get_config()
+    c.InteractiveShellApp.extensions = [
+        'powerline.bindings.ipython.post_0_11'
+    ]
 
 For IPython<0.11 add the following lines to :file:`.ipython/ipy_user_conf.py`:
 
@@ -114,14 +181,6 @@ For IPython<0.11 add the following lines to :file:`.ipython/ipy_user_conf.py`:
     # create skeleton ipy_user_conf.py file):
     powerline_setup()
 
-For IPython>=0.11 add the following line to :file:`ipython_config.py` file in 
-the used profile:
-
-.. code-block:: Python
-
-    c.InteractiveShellApp.extensions = [
-        'powerline.bindings.ipython.post_0_11'
-    ]
 
 IPython=0.11* is not supported and does not work. IPython<0.10 was not 
 tested (not installable by pip).

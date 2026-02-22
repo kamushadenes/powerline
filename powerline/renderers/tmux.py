@@ -38,7 +38,7 @@ class TmuxRenderer(Renderer):
 				width = 10
 		return super(TmuxRenderer, self).render(width=width, segment_info=segment_info, **kwargs)
 
-	def hlstyle(self, fg=None, bg=None, attrs=None):
+	def hlstyle(self, fg=None, bg=None, attrs=None, **kwargs):
 		'''Highlight a segment.'''
 		# We don’t need to explicitly reset attributes, so skip those calls
 		if not attrs and not bg and not fg:
@@ -48,12 +48,18 @@ class TmuxRenderer(Renderer):
 			if fg is False or fg[0] is False:
 				tmux_attrs += ['fg=default']
 			else:
-				tmux_attrs += ['fg=colour' + str(fg[0])]
+				if self.term_truecolor and fg[1]:
+					tmux_attrs += ['fg=#{0:06x}'.format(int(fg[1]))]
+				else:
+					tmux_attrs += ['fg=colour' + str(fg[0])]
 		if bg is not None:
 			if bg is False or bg[0] is False:
 				tmux_attrs += ['bg=default']
 			else:
-				tmux_attrs += ['bg=colour' + str(bg[0])]
+				if self.term_truecolor and bg[1]:
+					tmux_attrs += ['bg=#{0:06x}'.format(int(bg[1]))]
+				else:
+					tmux_attrs += ['bg=colour' + str(bg[0])]
 		if attrs is not None:
 			tmux_attrs += attrs_to_tmux_attrs(attrs)
 		return '#[' + ','.join(tmux_attrs) + ']'
@@ -62,7 +68,9 @@ class TmuxRenderer(Renderer):
 		r = self.segment_info.copy()
 		if segment_info:
 			r.update(segment_info)
-		if 'pane_id' in r:
+		if 'pane_current_path' in r:
+			r['getcwd'] = lambda: r['pane_current_path']
+		elif 'pane_id' in r:
 			varname = 'TMUX_PWD_' + str(r['pane_id'])
 			if varname in r['environ']:
 				r['getcwd'] = lambda: r['environ'][varname]

@@ -30,6 +30,7 @@ def _fetch_battery_info(pl):
 			else:
 				devinterface = 'org.freedesktop.DBus.Properties'
 				devtype_name = interface + '.Device'
+				devices = []
 				for devpath in up.EnumerateDevices(dbus_interface=interface):
 					dev = bus.get_object(interface, devpath)
 					devget = lambda what: dev.Get(
@@ -46,41 +47,88 @@ def _fetch_battery_info(pl):
 					if not bool(devget('PowerSupply')):
 						pl.debug('Not using DBUS+UPower with {0}: not a power supply', devpath)
 						continue
+					devices.append(devpath)
 					pl.debug('Using DBUS+UPower with {0}', devpath)
-					return lambda pl: (
-						float(
-							dbus.Interface(dev, dbus_interface=devinterface).Get(
+				if devices:
+					def _flatten_battery(pl):
+						energy = 0.0
+						energy_full = 0.0
+						state = True
+						for devpath in devices:
+							dev = bus.get_object(interface, devpath)
+							energy_full += float(
+								dbus.Interface(dev, dbus_interface=devinterface).Get(
+									devtype_name,
+									'EnergyFull'
+								),
+							)
+							energy += float(
+								dbus.Interface(dev, dbus_interface=devinterface).Get(
+									devtype_name,
+									'Energy'
+								),
+							)
+							state &= dbus.Interface(dev, dbus_interface=devinterface).Get(
 								devtype_name,
-								'Percentage'
-							),
-						),
-						dbus.Interface(dev, dbus_interface=devinterface).Get(
-							devtype_name,
-							'State'
-						) == 1
-					)
+								'State'
+							) != 2
+						if energy_full > 0:
+							return (energy * 100.0 / energy_full), state
+						else:
+							return 0.0, state
+					return _flatten_battery
 				pl.debug('Not using DBUS+UPower as no batteries were found')
 
 	if os.path.isdir('/sys/class/power_supply'):
-		linux_capacity_fmt = '/sys/class/power_supply/{0}/capacity'
+		# ENERGY_* attributes represents capacity in µWh only.
+		# CHARGE_* attributes represents capacity in µAh only.
+		linux_capacity_units = ('energy', 'charge')
+		linux_energy_full_fmt = '/sys/class/power_supply/{0}/{1}_full'
+		linux_energy_fmt = '/sys/class/power_supply/{0}/{1}_now'
 		linux_status_fmt = '/sys/class/power_supply/{0}/status'
+		devices = []
 		for linux_supplier in os.listdir('/sys/class/power_supply'):
-			cap_path = linux_capacity_fmt.format(linux_supplier)
-			status_path = linux_status_fmt.format(linux_supplier)
-			if not os.path.exists(cap_path):
-				continue
-			pl.debug('Using /sys/class/power_supply with battery {0}', linux_supplier)
+			for unit in linux_capacity_units:
+				energy_path = linux_energy_fmt.format(linux_supplier, unit)
+				if not os.path.exists(energy_path):
+					continue
+				pl.debug('Using /sys/class/power_supply with battery {0} and unit {1}',
+					linux_supplier, unit)
+				devices.append((linux_supplier, unit))
+				break  # energy or charge, not both
+		if devices:
 			def _get_battery_status(pl):
-				with open(cap_path, 'r') as f:
-					_capacity = int(float(f.readline().split()[0]))
-				try:
-					with open(status_path, 'r') as f:
-						_ac_powered = (f.readline().strip() != 'Discharging')
-				except IOError:
-					_ac_powered = None
-				return _capacity, _ac_powered
+				energy = 0.0
+				energy_full = 0.0
+				state = True
+				for device, unit in devices:
+					with open(linux_energy_full_fmt.format(device, unit), 'r') as f:
+						energy_full += int(float(f.readline().split()[0]))
+					with open(linux_energy_fmt.format(device, unit), 'r') as f:
+						energy += int(float(f.readline().split()[0]))
+					try:
+						with open(linux_status_fmt.format(device), 'r') as f:
+							state &= (f.readline().strip() != 'Discharging')
+					except IOError:
+						state = None
+				return (energy * 100.0 / energy_full), state
 			return _get_battery_status
 			pl.debug('Not using /sys/class/power_supply as no batteries were found')
+		else:
+			pl.debug("Checking for first capacity battery percentage")
+			for batt in os.listdir('/sys/class/power_supply'):
+				if os.path.exists('/sys/class/power_supply/{0}/capacity'.format(batt)):
+					def _get_battery_perc(pl):
+						state = True
+						with open('/sys/class/power_supply/{0}/capacity'.format(batt), 'r') as f:
+							perc = int(f.readline().split()[0])
+						try:
+							with open(linux_status_fmt.format(batt), 'r') as f:
+								state &= (f.readline().strip() != 'Discharging')
+						except IOError:
+							state = None
+						return perc, state
+					return _get_battery_perc
 	else:
 		pl.debug('Not using /sys/class/power_supply: no directory')
 

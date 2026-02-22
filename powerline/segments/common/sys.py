@@ -13,7 +13,8 @@ from powerline.segments import with_docstring
 cpu_count = None
 
 
-def system_load(pl, format='{avg:.1f}', threshold_good=1, threshold_bad=2, track_cpu_count=False):
+def system_load(pl, format='{avg:.1f}', threshold_good=1, threshold_bad=2,
+                track_cpu_count=False, short=False):
 	'''Return system load average.
 
 	Highlights using ``system_load_good``, ``system_load_bad`` and
@@ -35,6 +36,8 @@ def system_load(pl, format='{avg:.1f}', threshold_good=1, threshold_bad=2, track
 	:param bool track_cpu_count:
 		if True powerline will continuously poll the system to detect changes
 		in the number of CPUs.
+	:param bool short:
+		if True only the sys load over last 1 minute will be displayed.
 
 	Divider highlight group used: ``background:divider``.
 
@@ -61,6 +64,10 @@ def system_load(pl, format='{avg:.1f}', threshold_good=1, threshold_bad=2, track
 			'divider_highlight_group': 'background:divider',
 			'gradient_level': gradient_level,
 		})
+
+		if short:
+		    return ret
+
 	ret[0]['contents'] += ' '
 	ret[1]['contents'] += ' '
 	return ret
@@ -83,8 +90,6 @@ try:
 					self.exception('Exception while calculating cpu_percent: {0}', str(e))
 
 		def render(self, cpu_percent, format='{0:.0f}%', **kwargs):
-			if not cpu_percent:
-				return None
 			return [{
 				'contents': format.format(cpu_percent),
 				'gradient_level': cpu_percent,
@@ -143,7 +148,8 @@ else:
 
 
 @add_divider_highlight_group('background:divider')
-def uptime(pl, days_format='{days:d}d', hours_format=' {hours:d}h', minutes_format=' {minutes:d}m', seconds_format=' {seconds:d}s', shorten_len=3):
+def uptime(pl, days_format='{days:d}d', hours_format=' {hours:d}h', minutes_format=' {minutes:02d}m',
+		seconds_format=' {seconds:02d}s', shorten_len=3):
 	'''Return system uptime.
 
 	:param str days_format:
@@ -168,9 +174,11 @@ def uptime(pl, days_format='{days:d}d', hours_format=' {hours:d}h', minutes_form
 	hours, minutes = divmod(minutes, 60)
 	days, hours = divmod(hours, 24)
 	time_formatted = list(filter(None, [
-		days_format.format(days=days) if days and days_format else None,
-		hours_format.format(hours=hours) if hours and hours_format else None,
-		minutes_format.format(minutes=minutes) if minutes and minutes_format else None,
-		seconds_format.format(seconds=seconds) if seconds and seconds_format else None,
-	]))[0:shorten_len]
+		days_format.format(days=days) if days_format else None,
+		hours_format.format(hours=hours) if hours_format else None,
+		minutes_format.format(minutes=minutes) if minutes_format else None,
+		seconds_format.format(seconds=seconds) if seconds_format else None,
+	]))
+	first_non_zero = next((i for i, x in enumerate([days, hours, minutes, seconds]) if x != 0))
+	time_formatted = time_formatted[first_non_zero:first_non_zero + shorten_len]
 	return ''.join(time_formatted).strip()
